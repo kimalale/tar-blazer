@@ -25,8 +25,8 @@ export interface GameState {
 }
 
 export const INITIAL_STATE = (): GameState => ({
-  phase: 'idle', speed: 0, carX: 0, carVX: 0,
-  score: 0, lives: 3, turbo: 100, turboActive: false,
+  phase: 'idle', speed: 5, carX: 0, carVX: 0,
+  score: 0, lives: 3, turbo: 120, turboActive: false,
   countdown: 3, cdTimer: 0, spawnTimer: 0, highScore: 0,
 })
 
@@ -81,7 +81,7 @@ export class GameEngine {
       : Math.min(100, s.turbo + 18 * dt)
 
     // ── Speed ───────────────────────────────────────────
-    const topSpd = s.turboActive ? 20 : 11
+    const topSpd = s.turboActive ? 80 : 40
     if (keys.up)        s.speed += (topSpd - s.speed) * 3.5 * dt
     else if (keys.down) s.speed -= s.speed * 5 * dt
     else                s.speed -= s.speed * 2 * dt
