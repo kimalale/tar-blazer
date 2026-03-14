@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react'
 import { TarBlazerScene } from '../engine/scene'
 import { GameEngine, Keys, GamePhase } from '../engine/game'
-import { useStorage } from '../../cloudphone-ui/src/hooks/useStorage'
 import { sfx } from '../../cloudphone-ui/src/engine/sound'
-import { CP_KEYS } from '../../cloudphone-ui/src/types'
 
 const W = 240, H = 320
 
@@ -17,7 +15,7 @@ export function RaceScreen({ onMenu }: { onMenu: () => void }) {
   const rafRef     = useRef<number>(0)
   const lastRef    = useRef<number>(0)
   const [phase,    setPhase]    = useState<GamePhase>('idle')
-  const [hud,      setHud]      = useState({ speed:0, score:0, lives:3, turbo:100, countdown:3 })
+  const [hud,      setHud]      = useState({ speed:5, score:0, lives:3, turbo:128, countdown:3 })
 
   // ── Init Three.js scene ────────────────────────────────
   useEffect(() => {
@@ -43,8 +41,11 @@ export function RaceScreen({ onMenu }: { onMenu: () => void }) {
     }
   }, [])
 
-  // ── Game loop ──────────────────────────────────────────
-  const loop = useCallback((ts: number) => {
+  // ── Game loop — use refs only, no useCallback ──────────
+  // useCallback with [] captures stale refs; storing loop in a ref fixes this
+  const loopRef = useRef<(ts: number) => void>()
+
+  loopRef.current = (ts: number) => {
     const engine = engineRef.current
     if (!engine) return
     const dt = Math.min((ts - lastRef.current) / 1000, 0.05)
@@ -63,30 +64,41 @@ export function RaceScreen({ onMenu }: { onMenu: () => void }) {
     setPhase(s.phase)
 
     if (s.phase === 'playing' || s.phase === 'countdown') {
-      rafRef.current = requestAnimationFrame(loop)
+      rafRef.current = requestAnimationFrame(ts => loopRef.current!(ts))
     }
-  }, [])
+  }
 
   const startGame = useCallback(() => {
     const engine = engineRef.current
     if (!engine) return
     sfx.play('go')
     engine.startGame()
+    cancelAnimationFrame(rafRef.current)
     lastRef.current = performance.now()
-    rafRef.current  = requestAnimationFrame(loop)
-  }, [loop])
+    rafRef.current  = requestAnimationFrame(ts => loopRef.current!(ts))
+  }, [])
 
   // ── Keyboard input ─────────────────────────────────────
+  // Use a ref for phase so the keydown handler always sees current value
+  const phaseRef = useRef<GamePhase>('idle')
+  useEffect(() => { phaseRef.current = phase }, [phase])
+
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       const k = keysRef.current
+      const p = phaseRef.current
       if (e.key==='ArrowUp'   ||e.key==='w'||e.key==='W') k.up=true
       if (e.key==='ArrowDown' ||e.key==='s'||e.key==='S') k.down=true
       if (e.key==='ArrowLeft' ||e.key==='a'||e.key==='A') k.left=true
       if (e.key==='ArrowRight'||e.key==='d'||e.key==='D') k.right=true
       if (e.key===' '||e.key==='Shift') k.turbo=true
-      if ((e.key==='Enter'||e.key===CP_KEYS.LSK) && (phase==='idle'||phase==='gameover')) startGame()
-      if (e.key===CP_KEYS.RSK && (phase==='idle'||phase==='gameover')) onMenu()
+      // Start / retry: Enter, Space, or Escape all work
+      if ((e.key==='Enter'||e.key===' '||e.key==='Escape') && (p==='idle'||p==='gameover')) {
+        e.preventDefault()
+        startGame()
+        return
+      }
+      if (e.key==='Backspace' && (p==='idle'||p==='gameover')) onMenu()
       if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault()
     }
     const onUp = (e: KeyboardEvent) => {
@@ -100,11 +112,7 @@ export function RaceScreen({ onMenu }: { onMenu: () => void }) {
     window.addEventListener('keydown', onDown)
     window.addEventListener('keyup',   onUp)
     return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp) }
-  }, [phase, startGame, onMenu])
-
-  // ── D-pad button helpers ───────────────────────────────
-  const pd = (key: keyof Keys) => () => { keysRef.current[key] = true }
-  const pu = (key: keyof Keys) => () => { keysRef.current[key] = false }
+  }, [startGame, onMenu])  // no `phase` dependency — using phaseRef instead
 
   const turboColor = hud.turbo > 50 ? '#00f5ff' : hud.turbo > 20 ? '#fbbf24' : '#ff2d78'
 
@@ -145,17 +153,6 @@ export function RaceScreen({ onMenu }: { onMenu: () => void }) {
         <span className="text-[8px]" style={{color:'#00f5ff'}}>TURBO</span>
         <span className="text-[7px]" style={{color:'#2a2a4a'}}>← → STEER  ↑ GAS</span>
         <span className="text-[8px] cursor-pointer" style={{color:'#444'}} onClick={onMenu}>QUIT</span>
-      </div>
-
-      {/* D-pad */}
-      <div className="absolute bottom-[32px] right-[6px] flex flex-col items-center gap-[3px]" style={{zIndex:10}}>
-        <DKey label="▲" onDown={pd('up')}   onUp={pu('up')} />
-        <div className="flex gap-[3px]">
-          <DKey label="◀" onDown={pd('left')}  onUp={pu('left')} />
-          <DKey label="T" color="#00f5ff" onDown={pd('turbo')} onUp={pu('turbo')} />
-          <DKey label="▶" onDown={pd('right')} onUp={pu('right')} />
-        </div>
-        <DKey label="▼" onDown={pd('down')}  onUp={pu('down')} />
       </div>
 
       {/* Countdown overlay */}

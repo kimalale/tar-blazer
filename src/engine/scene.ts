@@ -44,9 +44,9 @@ export class TarBlazerScene {
 
     // ── Camera ───────────────────────────────────────────
     const aspect = canvas.width / canvas.height
-    this.camera = new THREE.PerspectiveCamera(58, aspect, 0.1, 120)
-    this.camera.position.set(0, 2.8, 5.5)
-    this.camera.lookAt(0, 0.4, -8)
+    this.camera = new THREE.PerspectiveCamera(55, aspect, 0.1, 120)
+    this.camera.position.set(0, 3.8, 8.0)
+    this.camera.lookAt(0, 0.3, -5)
 
     this.carGroup = new THREE.Group()
 
@@ -77,9 +77,17 @@ export class TarBlazerScene {
     sun.shadow.camera.far = 60;   sun.shadow.bias = -0.001
     this.scene.add(sun)
 
-    this.scene.add(Object.assign(new THREE.DirectionalLight(0x4488ff, 0.5), { position: new THREE.Vector3(-5, 3, -4) }))
-    this.scene.add(Object.assign(new THREE.PointLight(0xff2d78, 3, 10), { position: new THREE.Vector3(-2.5, 0.5, 1) }))
-    this.scene.add(Object.assign(new THREE.PointLight(0x00f5ff, 3, 10), { position: new THREE.Vector3(2.5, 0.5, 1) }))
+    const fill = new THREE.DirectionalLight(0x4488ff, 0.5)
+    fill.position.set(-5, 3, -4)
+    this.scene.add(fill)
+
+    const pink = new THREE.PointLight(0xff2d78, 3, 10)
+    pink.position.set(-2.5, 0.5, 1)
+    this.scene.add(pink)
+
+    const cyan = new THREE.PointLight(0x00f5ff, 3, 10)
+    cyan.position.set(2.5, 0.5, 1)
+    this.scene.add(cyan)
   }
 
   // ── Car ──────────────────────────────────────────────────
@@ -154,7 +162,8 @@ export class TarBlazerScene {
     // Headlights
     const hlMat = new THREE.MeshStandardMaterial({ color:0xffffee, emissive:0xffffaa, emissiveIntensity:3, metalness:0.1, roughness:0.1 })
     ;([[- 0.28, 0.3, 1.01],[0.28, 0.3, 1.01]] as [number,number,number][]).forEach(([x, y, z]) => {
-      cg.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.05), hlMat), { position: new THREE.Vector3(x, y, z) }))
+      const hl = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.05), hlMat)
+      hl.position.set(x, y, z); cg.add(hl)
       const spot = new THREE.SpotLight(0xffffcc, 4, 14, 0.35, 0.5)
       spot.position.set(x, y, z); spot.target.position.set(x * 0.5, 0, -8)
       cg.add(spot); cg.add(spot.target)
@@ -163,7 +172,8 @@ export class TarBlazerScene {
     // Tail lights
     const tlMat = new THREE.MeshStandardMaterial({ color:0xff0000, emissive:0xff0000, emissiveIntensity:2 })
     ;([[-0.28,0.3,-1.01],[0.28,0.3,-1.01]] as [number,number,number][]).forEach(([x,y,z]) => {
-      cg.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.07, 0.04), tlMat), { position: new THREE.Vector3(x,y,z) }))
+      const tl = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.07, 0.04), tlMat)
+      tl.position.set(x, y, z); cg.add(tl)
     })
 
     // Exhausts
@@ -327,8 +337,11 @@ export class TarBlazerScene {
     // Stars
     this.stars.position.z += speed * dt * 0.04
 
-    // Obstacle rotation
-    this.obstacles.forEach(o => { o.mesh.rotation.y += o.rotSpd * dt })
+    // Obstacle scroll + rotation
+    this.obstacles.forEach(o => {
+      o.mesh.position.z += speed * dt
+      o.mesh.rotation.y += o.rotSpd * dt
+    })
 
     // Hit flash
     if (this.hitFlashFrames > 0) {
@@ -340,8 +353,8 @@ export class TarBlazerScene {
 
     // Camera lean
     this.camera.position.x += (carVX * 0.12 - this.camera.position.x) * 4 * dt
-    this.camera.position.y  = 2.8 + speed * 0.008
-    this.camera.lookAt(this.carGroup.position.x * 0.3, 0.4, -8)
+    this.camera.position.y  = 3.8 + speed * 0.008
+    this.camera.lookAt(this.carGroup.position.x * 0.3, 0.3, -5)
 
     this.renderer.render(this.scene, this.camera)
   }
